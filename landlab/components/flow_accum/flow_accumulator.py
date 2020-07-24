@@ -905,6 +905,7 @@ class FlowAccumulator(Component):
                 FlowDirectorD8,
                 FlowDirectorMFD,
                 FlowDirectorDINF,
+                FlowDirectorD8PriorityFlood
             )
 
             DIRECTOR_METHODS = {
@@ -913,6 +914,7 @@ class FlowAccumulator(Component):
                 "D8": FlowDirectorD8,
                 "MFD": FlowDirectorMFD,
                 "DINF": FlowDirectorDINF,
+                "D8PriorityFlood": FlowDirectorD8PriorityFlood
             }
 
             try:

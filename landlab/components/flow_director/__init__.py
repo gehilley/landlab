@@ -4,6 +4,7 @@ from .flow_director_d8 import FlowDirectorD8
 from .flow_director_dinf import FlowDirectorDINF
 from .flow_director_mfd import FlowDirectorMFD
 from .flow_director_steepest import FlowDirectorSteepest
+from .flow_director_d8_priority_flood import FlowDirectorD8PriorityFlood
 
 __all__ = [
     "FlowDirectorD8",
@@ -12,4 +13,5 @@ __all__ = [
     "FlowDirectorDINF",
     "flow_directions",
     "flow_direction_DN",
+    "FlowDirectorD8PriorityFlood"
 ]
