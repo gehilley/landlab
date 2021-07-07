@@ -1,55 +1,39 @@
 from landlab.components.flow_director.flow_director_d8 import FlowDirectorD8
 import numpy as np
-import heapq
+from heapq import heappush, heappop
 import random
 
 def flood(grid, dx = 1.0, aggradation_slope = 1E-12, fixed_nodes = None):
 
-    class priorityQueue:
-        # Implements a priority queue using heapq. Python has a priority queue module built in, but it
-        # is not stably sorted (meaning that two items who are tied in priority are treated arbitrarily, as opposed to being
-        # returned on a first in first out basis). This circumvents that by keeping a count on the items inserted and using that
-        # count as a secondary priority
+    pq = []
 
-        def __init__(self):
-            # A counter and the number of items are stored separately to ensure that items remain stably sorted and to
-            # keep track of the size of the queue (so that we can check if its empty, which will be useful will iterating
-            # through the queue)
-            self.__pq = []
-            self.__counter = 0
-            self.__nItems = 0
+    rowKernel = np.array([1, 1, 1, 0, 0, -1, -1, -1]).astype(int)
+    colKernel = np.array([-1, 0, 1, -1, 1, -1, 0, 1]).astype(int)
 
-        def get(self):
-            # Remove an item and its priority from the queue
-            priority, count, item = heapq.heappop(self.__pq)
-            self.__nItems -= 1
-            return priority, item
+    rt2 = np.sqrt(2)
+    dxMults = np.array([rt2, 1.0, rt2, 1.0, 1.0, rt2, 1.0, rt2])
+    dxs = dx * dxMults
 
-        def put(self, priority, item):
-            # Add an item to the priority queue
-            self.__counter += 1
-            self.__nItems += 1
-            entry = [priority, self.__counter, item]
-            heapq.heappush(self.__pq, entry)
+    grid_shape = grid.shape
 
-        def isEmpty(self):
-            return self.__nItems == 0
+    def getNeighborIndices(row, col):
 
-    def getNeighborIndices(row, col, grid_shape):
-        # Search kernel for D8 flow routing, the relative indices of each of the 8 points surrounding a pixel
-        rowKernel = np.array([1, 1, 1, 0, 0, -1, -1, -1])
-        colKernel = np.array([-1, 0, 1, -1, 1, -1, 0, 1])
-
-        rt2 = np.sqrt(2)
-        dxMults = np.array([rt2, 1.0, rt2, 1.0, 1.0, rt2, 1.0, rt2])  # Unit Distance from pixel to surrounding coordinates
-
-        # Find all the surrounding indices
-        outRows = (rowKernel + row).astype(int)
-        outCols = (colKernel + col).astype(int)
+        outRows = (rowKernel + int(row))
+        outCols = (colKernel + int(col))
 
         # Determine which indices are out of bounds
         inBounds = (outRows >= 0) * (outRows < grid_shape[0]) * (outCols >= 0) * (outCols < grid_shape[1])
         return (outRows[inBounds], outCols[inBounds], dxMults[inBounds])
+
+    def update_grid_func(elevation):
+
+        def inner_function(row, col, dx):
+            if not closed[row, col]:
+                grid[row, col] = elevation + aggradation_slope * dx if grid[row,col] <= elevation else grid[row,col]
+                closed[row, col] = True
+                heappush(pq, (grid[row, col],  (row, col)))
+
+        return inner_function
 
     closed = np.zeros_like(grid).astype(bool)
 
@@ -65,34 +49,22 @@ def flood(grid, dx = 1.0, aggradation_slope = 1E-12, fixed_nodes = None):
         random.shuffle(shuffled_fixed_nodes)
         [edgeRows, edgeCols] = zip(*shuffled_fixed_nodes)
 
-    priority_queue = priorityQueue()
-
     for i in range(len(edgeCols)):
         row, col = edgeRows[i], edgeCols[i]
-
         closed[row, col] = True
-        priority_queue.put(grid[row, col], (row, col))
+        heappush(pq, (grid[row,col], (row, col)))
 
-    while not priority_queue.isEmpty():
+    counter = 0
 
-        priority, (row, col) = priority_queue.get()
-        elevation = grid[row, col]
-
-        neighborRows, neighborCols, dxMults = getNeighborIndices(row, col, grid.shape)
-        dxs = dx * dxMults
-
-        for i in range(len(neighborCols)):
-            should_fill = True
-
-            if not closed[neighborRows[i], neighborCols[i]]:
-                # If this was a hole (lower than the cell downstream), fill it
-                if grid[neighborRows[i], neighborCols[i]] <= elevation:
-                    if should_fill:
-                        grid[neighborRows[i], neighborCols[i]] = elevation + aggradation_slope * dxs[i]
-
-                closed[neighborRows[i], neighborCols[i]] = True
-                if should_fill:
-                    priority_queue.put(grid[neighborRows[i], neighborCols[i]], [neighborRows[i], neighborCols[i]])
+    while True:
+        try:
+            priority, (row, col) = heappop(pq)
+            elevation = grid[row, col]
+            neighborRows, neighborCols, dxs = getNeighborIndices(row, col)
+            list(map(update_grid_func(elevation), neighborRows, neighborCols, dxs))
+            counter += 1
+        except IndexError:
+            break
 
     return grid
 
