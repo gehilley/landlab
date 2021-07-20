@@ -114,6 +114,9 @@ class Component:
                             )
                         )
 
+    def relink_grid(self, grid):
+        self._grid = grid
+
     @classmethod
     def from_path(cls, grid, path):
         """Create a component from an input file.
